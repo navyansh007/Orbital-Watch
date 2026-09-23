@@ -4,6 +4,20 @@
  * Thresholds follow NOAA SWPC's published G-scale: Kp 5 = G1 through Kp 9 = G5.
  * Below Kp 5 there is no storm level, so we report the descriptive band only.
  */
+import type { SpaceWeather } from './types';
+
+/** Reads the current planetary K-index through our own edge proxy. */
+export async function fetchSpaceWeather(signal?: AbortSignal): Promise<SpaceWeather> {
+  const response = await fetch('/api/spaceweather', { signal });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(detail?.error ?? `Space weather unavailable (${response.status}).`);
+  }
+
+  return (await response.json()) as SpaceWeather;
+}
+
 export type GeomagneticTone = 'quiet' | 'unsettled' | 'minor' | 'strong' | 'severe';
 
 export type GeomagneticLevel = {

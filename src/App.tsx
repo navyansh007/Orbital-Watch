@@ -14,6 +14,7 @@ import { TelemetryPanel } from './components/TelemetryPanel';
 import { useGroundTrack } from './hooks/useGroundTrack';
 import { useLiveSatelliteState } from './hooks/useLiveSatelliteState';
 import { useSatelliteRecord } from './hooks/useSatelliteRecord';
+import { useSpaceWeather } from './hooks/useSpaceWeather';
 import { SATELLITES, reportVisibility } from './lib/satellites';
 import type { GroundSite, SatelliteId } from './lib/types';
 
@@ -26,6 +27,7 @@ export default function App() {
   const { nowMs, state } = useLiveSatelliteState(satrec);
   const groundTrack = useGroundTrack(satrec, satellite, nowMs);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const { weather, error: weatherError } = useSpaceWeather();
 
   // A 48-hour search is a few thousand SGP4 calls — under 10 ms — so it runs
   // inline. It deliberately does not depend on the 1 Hz clock: a pass time does
@@ -83,7 +85,7 @@ export default function App() {
           onUseMyLocation={useMyLocation}
           onClear={() => setSite(null)}
         />
-        <SpaceWeatherBadge weather={null} />
+        <SpaceWeatherBadge weather={weather} error={weatherError} />
       </aside>
     </div>
   );
