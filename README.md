@@ -10,8 +10,6 @@ horizon-limited coverage area, the same figure ham operators and ground-station
 planners work with. Nothing here is simulated, mocked, or hardcoded — every
 number comes from live public data.
 
-![The ISS in low Earth orbit, with ground track and coverage footprint](docs/screenshots/iss-leo.jpg)
-
 ## What you can do
 
 - **Watch the ISS move.** Position refreshes every second, propagated from real
@@ -26,8 +24,6 @@ number comes from live public data.
   motionless over the Americas with a 9041 km footprint covering 42.4% of the planet.
 - **Check space weather.** NOAA's planetary K-index, colour-coded on the real G-scale.
 
-![GOES 19 in geostationary orbit, with its hemisphere-wide footprint](docs/screenshots/goes-geo.jpg)
-
 ## How it works
 
 A TLE (Two-Line Element set) is not a position — it is a compact description of
@@ -36,7 +32,7 @@ one the aerospace world actually uses is **SGP4**.
 
 ```
 CelesTrak  ──TLE──▶  /api/tle  ──▶  satellite.js (SGP4)  ──▶  position, velocity
-                     (edge, 1h cache)         │
+                     (edge, 6h cache)         │
                                               ├──▶  footprint geometry  ──▶  Cesium
                                               ├──▶  ground track sampling
                                               └──▶  forward search  ──▶  next pass
@@ -68,6 +64,31 @@ with the spherical destination-point formula. This matters: the usual "draw an
 ellipse" approach is approximated in a local tangent plane and visibly collapses
 for a geostationary footprint, which spans 81 degrees of arc.
 
+## Playing nicely with CelesTrak
+
+CelesTrak blocks clients that re-download element files faster than the data
+changes — it publishes updates two or three times a day and checks its files at
+most every two hours. Three things in this codebase exist specifically to stay
+well under that, and none of them should be weakened:
+
+- **The edge function caches explicitly, via the Cache API.** This is the one
+  that matters most: a `Cache-Control` header on its own does *not* make
+  Cloudflare cache a Pages Function response. Dynamic responses are only stored
+  if you put them in the cache yourself, so without the explicit `cache.put`
+  CelesTrak would be hit on essentially every page load.
+- **One batched request covers both satellites**, and the client keeps both
+  orbits in memory — switching satellites issues no request at all.
+- **A six-hour TTL**, matched by the client's refresh interval. That is far
+  inside a TLE's useful life; SGP4 error grows on the order of a couple of
+  kilometres per day.
+
+If CelesTrak is unreachable the route serves the last good elements rather than
+failing, and the UI keeps propagating from the orbit it already has. A blocked
+IP clears automatically once the excessive requests stop for two hours.
+
+The dev server applies the same cache in memory (see `vite-plugins/`), so a
+morning of hot reloading does not get your own IP blocked.
+
 ## Stack
 
 - **Vite + React + TypeScript** — static SPA, no server rendering
@@ -75,10 +96,13 @@ for a geostationary footprint, which spans 81 degrees of arc.
 - **satellite.js** — SGP4 propagation, entirely client-side
 - **Cloudflare Pages** — static hosting plus two Pages Functions as data proxies
 
-| Source | Used for | Route |
-|---|---|---|
-| [CelesTrak](https://celestrak.org) | Two-line orbital elements | `/api/tle?name=<catalogue name>` |
-| [NOAA SWPC](https://services.swpc.noaa.gov) | Planetary K-index | `/api/spaceweather` |
+| Source | Used for | Route | Cached |
+|---|---|---|---|
+| [CelesTrak](https://celestrak.org) | Two-line orbital elements | `/api/tle` | 6 hours |
+| [NOAA SWPC](https://services.swpc.noaa.gov) | Planetary K-index | `/api/spaceweather` | 5 minutes |
+
+`/api/tle` takes no parameters: it returns elements for **every** tracked
+satellite in one response, so switching satellites in the UI costs no network.
 
 ## Getting started
 
@@ -118,16 +142,17 @@ src/
     Globe.tsx           The only file that touches Cesium or WebGL
     TelemetryPanel.tsx  SatellitePicker.tsx  NextPassFinder.tsx  SpaceWeatherBadge.tsx
   hooks/
-    useSatelliteRecord.ts    TLE fetch + hourly refresh
+    useOrbitalElements.ts    batched TLE fetch for every satellite
     useLiveSatelliteState.ts 1 Hz propagation loop
     useGroundTrack.ts        coarse-cadence track resampling
     useSpaceWeather.ts       5-minute Kp poll
   lib/
-    satellites.ts       catalogue, TLE parsing, propagation, pass search
+    satellites.ts       catalogue, element loading, propagation, pass search
     footprint.ts        coverage geometry
     spaceWeather.ts     Kp fetch + NOAA G-scale classification
     sun.ts              subsolar point, used to frame the opening shot
     types.ts            shared domain types
+shared/catalogue.ts     catalogue numbers, shared by browser and edge
 scripts/                stages Cesium's runtime assets into public/
 vite-plugins/           runs functions/api/* on the dev server
 ```
@@ -152,6 +177,8 @@ Cloudflare Pages, connected to this repo:
   z-fighting.
 - **The edge functions must stay Node-free.** They run on the Workers runtime:
   web APIs only, no `fs`, no native modules.
+- **Do not add per-satellite TLE requests.** See the CelesTrak section above —
+  the batching and the explicit edge cache are load-bearing, not tidiness.
 
 ## Non-goals
 

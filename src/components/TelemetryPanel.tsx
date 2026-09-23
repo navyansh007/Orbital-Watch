@@ -1,4 +1,4 @@
-/** Live position/velocity readout for the tracked satellite. */
+/** Live telemetry, as a stat strip across the foot of the screen. */
 import { footprintCoverageFraction, footprintRadiusKm } from '../lib/footprint';
 import type { SatelliteDefinition, SatelliteState } from '../lib/types';
 
@@ -13,46 +13,55 @@ type Props = {
 };
 
 export function TelemetryPanel({ satellite, state, error, periodMinutes }: Props) {
+  if (error) {
+    return (
+      <div className="telemetry telemetry--error">
+        <span className="stat__label">Orbital data</span>
+        <span className="telemetry__error">{error}</span>
+      </div>
+    );
+  }
+
   return (
-    <section className="panel">
-      <h2 className="panel__title">Telemetry</h2>
-      <p className="panel__subtitle">{satellite.blurb}</p>
-
-      {error && <p className="panel__error">{error}</p>}
-      {!error && !state && <p className="panel__footnote">Loading orbital elements…</p>}
-
-      <dl className="readout">
-        <Row label="Latitude" value={state && `${formatDeg(state.latitudeDeg)} ${state.latitudeDeg >= 0 ? 'N' : 'S'}`} />
-        <Row label="Longitude" value={state && `${formatDeg(state.longitudeDeg)} ${state.longitudeDeg >= 0 ? 'E' : 'W'}`} />
-        <Row label="Altitude" value={state && `${state.altitudeKm.toFixed(1)} km`} />
-        <Row label="Velocity" value={state && `${state.velocityKmS.toFixed(3)} km/s`} />
-        <Row
-          label="Footprint radius"
-          value={state && `${footprintRadiusKm(state.altitudeKm).toFixed(0)} km`}
-        />
-        <Row
-          label="Earth covered"
-          value={state && `${(footprintCoverageFraction(state.altitudeKm) * 100).toFixed(1)} %`}
-        />
-        <Row
-          label="Orbital period"
-          value={periodMinutes ? `${periodMinutes.toFixed(1)} min` : null}
-        />
-        <Row label="Epoch" value={state && state.timestamp.toISOString().replace('T', ' ').slice(0, 19) + ' UTC'} />
-      </dl>
-    </section>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="readout__row">
-      <dt>{label}</dt>
-      <dd>{value ?? '—'}</dd>
+    <div className="telemetry">
+      <Stat
+        label="Satellite"
+        value={satellite.label}
+        note={satellite.orbitClass === 'LEO' ? 'Low Earth orbit' : 'Geostationary'}
+      />
+      <Stat label="Latitude" value={state && formatLat(state.latitudeDeg)} />
+      <Stat label="Longitude" value={state && formatLon(state.longitudeDeg)} />
+      <Stat label="Altitude" value={state && `${state.altitudeKm.toFixed(1)} km`} />
+      <Stat label="Velocity" value={state && `${state.velocityKmS.toFixed(3)} km/s`} />
+      <Stat
+        label="Footprint"
+        value={state && `${footprintRadiusKm(state.altitudeKm).toFixed(0)} km`}
+        note={state ? `${(footprintCoverageFraction(state.altitudeKm) * 100).toFixed(1)}% of Earth` : undefined}
+      />
+      <Stat label="Period" value={periodMinutes ? `${periodMinutes.toFixed(1)} min` : null} />
+      <Stat label="Epoch" value={state && `${formatUtc(state.timestamp)} UTC`} />
     </div>
   );
 }
 
-function formatDeg(value: number): string {
-  return `${Math.abs(value).toFixed(3)}°`;
+function Stat({ label, value, note }: { label: string; value: string | null; note?: string }) {
+  return (
+    <div className="stat">
+      <span className="stat__label">{label}</span>
+      <span className="stat__value">{value ?? '—'}</span>
+      {note && <span className="stat__note">{note}</span>}
+    </div>
+  );
+}
+
+function formatLat(value: number): string {
+  return `${Math.abs(value).toFixed(3)}° ${value >= 0 ? 'N' : 'S'}`;
+}
+
+function formatLon(value: number): string {
+  return `${Math.abs(value).toFixed(3)}° ${value >= 0 ? 'E' : 'W'}`;
+}
+
+function formatUtc(at: Date): string {
+  return at.toISOString().slice(11, 19);
 }

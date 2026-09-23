@@ -1,41 +1,63 @@
 /**
- * HUD shell.
+ * Application shell.
  *
- * Owns the tracked satellite and the ground site, and runs the propagation
- * loop that every panel reads from.
+ * Owns the tracked satellite and the ground site, runs the propagation loop
+ * everything else reads from, and lays the UI out as three transparent bands
+ * over a full-bleed globe.
  */
 import { useMemo, useState } from 'react';
 
-import { Globe } from './components/Globe';
+import { CREDIT_CONTAINER_ID, Globe } from './components/Globe';
 import { NextPassFinder } from './components/NextPassFinder';
 import { SatellitePicker } from './components/SatellitePicker';
 import { SpaceWeatherBadge } from './components/SpaceWeatherBadge';
 import { TelemetryPanel } from './components/TelemetryPanel';
 import { useGroundTrack } from './hooks/useGroundTrack';
 import { useLiveSatelliteState } from './hooks/useLiveSatelliteState';
-import { useSatelliteRecord } from './hooks/useSatelliteRecord';
+import { useOrbitalElements } from './hooks/useOrbitalElements';
 import { useSpaceWeather } from './hooks/useSpaceWeather';
-import { SATELLITES, orbitalPeriodMinutes, reportVisibility } from './lib/satellites';
+import {
+  SATELLITES,
+  elevationDegAt,
+  orbitalPeriodMinutes,
+  reportVisibility,
+} from './lib/satellites';
 import type { GroundSite, SatelliteId } from './lib/types';
+
+/** How often the pass search is redone. See the note on `report` below. */
+const PASS_REFRESH_MS = 60_000;
 
 export default function App() {
   const [selectedId, setSelectedId] = useState<SatelliteId>('iss');
   const [site, setSite] = useState<GroundSite | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const satellite = SATELLITES[selectedId];
-  const { satrec, error: orbitError } = useSatelliteRecord(satellite);
+  const { records, error: orbitError } = useOrbitalElements();
+  const satrec = records?.[selectedId] ?? null;
   const { nowMs, state } = useLiveSatelliteState(satrec);
   const groundTrack = useGroundTrack(satrec, satellite, nowMs);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const { weather, error: weatherError } = useSpaceWeather();
+
   const periodMinutes = satrec ? orbitalPeriodMinutes(satrec) : null;
 
-  // A 48-hour search is a few thousand SGP4 calls — under 10 ms — so it runs
-  // inline. It deliberately does not depend on the 1 Hz clock: a pass time does
-  // not change second to second, and recomputing it would be pure waste.
+  // Current elevation is one propagation, so it can ride the 1 Hz clock. It is
+  // what distinguishes "overhead right now" from "rises in eight hours".
+  const elevationDeg = useMemo(
+    () => (satrec && site ? elevationDegAt(satrec, site, new Date(nowMs)) : null),
+    [satrec, site, nowMs],
+  );
+
+  // A 48-hour search is a few thousand SGP4 calls — under 10 ms — but a pass
+  // time does not change second to second, so it is redone once a minute
+  // rather than on every tick. That also picks up hourly TLE refreshes.
+  const passBucket = Math.floor(nowMs / PASS_REFRESH_MS);
   const report = useMemo(
-    () => (satrec && site ? reportVisibility(satrec, satellite, site, new Date()) : null),
-    [satrec, satellite, site],
+    () =>
+      satrec && site
+        ? reportVisibility(satrec, satellite, site, new Date(passBucket * PASS_REFRESH_MS))
+        : null,
+    [satrec, satellite, site, passBucket],
   );
 
   const useMyLocation = () => {
@@ -69,41 +91,52 @@ export default function App() {
         }}
       />
 
-      <header className="app__header">
-        <h1 className="app__title">Orbital Watch</h1>
-        <p className="app__tagline">Live orbits, real footprints, real space weather.</p>
+      <header className="topbar">
+        <div className="wordmark">
+          Orbital<span>Watch</span>
+        </div>
+        <SatellitePicker selected={selectedId} onSelect={setSelectedId} />
+        <SpaceWeatherBadge weather={weather} error={weatherError} />
       </header>
 
-      <aside className="app__hud">
-        <SatellitePicker selected={selectedId} onSelect={setSelectedId} />
-        <TelemetryPanel
-          satellite={satellite}
-          state={state}
-          error={orbitError}
-          periodMinutes={periodMinutes}
-        />
+      <main className="stage">
         <NextPassFinder
           satellite={satellite}
           site={site}
           report={report}
+          elevationDeg={elevationDeg}
           loading={!satrec && !orbitError}
+          nowMs={nowMs}
           locationError={locationError}
           onUseMyLocation={useMyLocation}
           onClear={() => setSite(null)}
         />
-        <SpaceWeatherBadge weather={weather} error={weatherError} />
-      </aside>
+      </main>
 
-      <footer className="app__sources">
-        Orbits{' '}
-        <a href="https://celestrak.org" target="_blank" rel="noreferrer">
-          CelesTrak
-        </a>{' '}
-        · Space weather{' '}
-        <a href="https://www.swpc.noaa.gov" target="_blank" rel="noreferrer">
-          NOAA SWPC
-        </a>{' '}
-        · SGP4 propagation
+      <footer className="footbar">
+        <TelemetryPanel
+          satellite={satellite}
+          state={state}
+          // A failed refresh only matters if we have nothing to propagate
+          // from; TLEs stay accurate for days, so a cached orbit is still good.
+          error={satrec ? null : orbitError}
+          periodMinutes={periodMinutes}
+        />
+        <div className="sources">
+          <p className="sources__list">
+            <a href="https://celestrak.org" target="_blank" rel="noreferrer">
+              CelesTrak
+            </a>
+            <span>·</span>
+            <a href="https://www.swpc.noaa.gov" target="_blank" rel="noreferrer">
+              NOAA SWPC
+            </a>
+            <span>·</span>
+            SGP4
+          </p>
+          {/* Cesium renders its required attribution here. */}
+          <div id={CREDIT_CONTAINER_ID} className="sources__credits" />
+        </div>
       </footer>
     </div>
   );

@@ -1,4 +1,4 @@
-/** Switches which satellite the HUD is following. */
+/** Satellite switcher, rendered as a top-bar nav. */
 import { SATELLITE_LIST } from '../lib/satellites';
 import type { SatelliteId } from '../lib/types';
 
@@ -9,28 +9,25 @@ type Props = {
 
 export function SatellitePicker({ selected, onSelect }: Props) {
   return (
-    <fieldset className="picker">
-      <legend className="panel__title">Tracking</legend>
-      {SATELLITE_LIST.map((satellite) => (
-        <label
-          key={satellite.id}
-          className="picker__option"
-          data-active={satellite.id === selected}
-        >
-          <input
-            type="radio"
-            name="satellite"
-            value={satellite.id}
-            checked={satellite.id === selected}
-            onChange={() => onSelect(satellite.id)}
-          />
-          <span className="picker__swatch" style={{ background: satellite.color }} />
-          <span className="picker__label">
+    <nav className="nav" aria-label="Tracked satellite">
+      {SATELLITE_LIST.map((satellite) => {
+        const active = satellite.id === selected;
+
+        return (
+          <button
+            key={satellite.id}
+            type="button"
+            className="nav__item"
+            aria-current={active ? 'true' : undefined}
+            onClick={() => onSelect(satellite.id)}
+          >
+            {/* Ties the name to the marker colour used on the globe. */}
+            <span className="nav__dot" style={{ background: satellite.color }} />
             {satellite.label}
-            <small>{satellite.orbitClass}</small>
-          </span>
-        </label>
-      ))}
-    </fieldset>
+            <span className="nav__class">{satellite.orbitClass}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }

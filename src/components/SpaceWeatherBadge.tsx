@@ -1,4 +1,4 @@
-/** Geomagnetic risk badge, driven by NOAA's planetary K-index. */
+/** Geomagnetic conditions, as a compact top-bar readout. */
 import { classifyKp, formatKp } from '../lib/spaceWeather';
 import type { SpaceWeather } from '../lib/types';
 
@@ -9,28 +9,28 @@ type Props = {
 };
 
 export function SpaceWeatherBadge({ weather, error }: Props) {
+  if (error) {
+    return (
+      <div className="kp" title={error}>
+        <span className="kp__label">Geomagnetic</span>
+        <span className="kp__value kp__value--error">Unavailable</span>
+      </div>
+    );
+  }
+
   const level = weather ? classifyKp(weather.kp) : null;
 
   return (
-    <section className="panel">
-      <h2 className="panel__title">Geomagnetic activity</h2>
-
-      {error ? (
-        <p className="badge__error">{error}</p>
-      ) : (
-        <div className="badge" data-tone={level?.tone ?? 'unknown'}>
-          <span className="badge__kp">{weather ? `Kp ${formatKp(weather.kp)}` : 'Kp —'}</span>
-          <span className="badge__level">
-            {level ? [level.storm, level.label].filter(Boolean).join(' · ') : 'Awaiting NOAA SWPC'}
-          </span>
-        </div>
-      )}
-
-      {weather && (
-        <p className="panel__footnote">
-          Observed {new Date(weather.observedAt).toUTCString()} · NOAA SWPC
-        </p>
-      )}
-    </section>
+    <div
+      className="kp"
+      title={weather ? `Observed ${new Date(weather.observedAt).toUTCString()} · NOAA SWPC` : undefined}
+    >
+      <span className="kp__label">Geomagnetic</span>
+      <span className="kp__value">
+        <span className="kp__dot" data-tone={level?.tone ?? 'unknown'} />
+        {weather ? `Kp ${formatKp(weather.kp)}` : 'Kp —'}
+        <span className="kp__level">{level ? (level.storm ?? level.label) : 'Awaiting'}</span>
+      </span>
+    </div>
   );
 }

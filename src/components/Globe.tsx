@@ -59,6 +59,13 @@ type Props = {
   onPickSite: (site: GroundSite) => void;
 };
 
+/**
+ * Element id that Cesium renders its attribution into. Cesium Ion requires the
+ * credit to stay visible, so rather than fight its default bottom-left
+ * placement we hand it a container in our own footer.
+ */
+export const CREDIT_CONTAINER_ID = 'cesium-credits';
+
 export function Globe({ tracked, groundTrack, site, onPickSite }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -100,6 +107,7 @@ export function Globe({ tracked, groundTrack, site, onPickSite }: Props) {
         fullscreenButton: false,
         infoBox: false,
         selectionIndicator: false,
+        creditContainer: CREDIT_CONTAINER_ID,
       });
     } catch (cause) {
       // Surfacing a WebGL/Cesium init failure is exactly the external-system

@@ -38,7 +38,6 @@ import type {
 export const SATELLITES: Record<SatelliteId, SatelliteDefinition> = {
   iss: {
     id: 'iss',
-    celestrakName: 'ISS (ZARYA)',
     label: 'ISS (ZARYA)',
     orbitClass: 'LEO',
     color: '#4dd2ff',
@@ -46,7 +45,6 @@ export const SATELLITES: Record<SatelliteId, SatelliteDefinition> = {
   },
   goes: {
     id: 'goes',
-    celestrakName: 'GOES 19',
     label: 'GOES 19',
     orbitClass: 'GEO',
     color: '#ffb347',
@@ -56,51 +54,53 @@ export const SATELLITES: Record<SatelliteId, SatelliteDefinition> = {
 
 export const SATELLITE_LIST: SatelliteDefinition[] = Object.values(SATELLITES);
 
+/**
+ * Minimum elevation for a satellite to count as usefully visible, in degrees.
+ * Below roughly this angle a pass is lost behind terrain, buildings and haze.
+ */
+export const MIN_ELEVATION_DEG = 10;
+
 /** Thrown when orbital data cannot be fetched or parsed. */
 export class OrbitalDataError extends Error {}
 
 /**
- * Fetches a satellite's current TLE through our own edge proxy and parses it
- * into an SGP4 record.
+ * Loads orbital elements for every tracked satellite in one request.
+ *
+ * Deliberately batched: CelesTrak blocks clients that re-download the same
+ * element files faster than they change, so the app fetches once and keeps
+ * both orbits in memory rather than refetching when the user switches.
  */
-export async function loadSatRec(
-  definition: SatelliteDefinition,
+export async function fetchOrbitalElements(
   signal?: AbortSignal,
-): Promise<SatRec> {
-  const response = await fetch(
-    `/api/tle?name=${encodeURIComponent(definition.celestrakName)}`,
-    { signal },
-  );
+): Promise<Record<SatelliteId, SatRec>> {
+  const response = await fetch('/api/tle', { signal });
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new OrbitalDataError(
-      `Could not load orbital data for ${definition.label} (${response.status}). ${detail}`.trim(),
-    );
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new OrbitalDataError(detail?.error ?? `Could not load orbital data (${response.status}).`);
   }
 
-  return parseTle(await response.text(), definition.label);
+  const payload = (await response.json()) as {
+    satellites?: Record<string, { name: string; line1: string; line2: string }>;
+  };
+
+  const records = {} as Record<SatelliteId, SatRec>;
+
+  for (const definition of SATELLITE_LIST) {
+    const element = payload.satellites?.[definition.id];
+    if (!element) {
+      throw new OrbitalDataError(`No orbital elements returned for ${definition.label}.`);
+    }
+    records[definition.id] = toSatRec(element.line1, element.line2, definition.label);
+  }
+
+  return records;
 }
 
-/**
- * Parses the first TLE set out of a CelesTrak response. The response is a
- * three-line-per-object listing: name, line 1, line 2.
- */
-export function parseTle(text: string, label: string): SatRec {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const line1Index = lines.findIndex((line) => line.startsWith('1 '));
-  const line1 = lines[line1Index];
-  const line2 = lines[line1Index + 1];
-
-  if (!line1 || !line2?.startsWith('2 ')) {
-    throw new OrbitalDataError(`Malformed TLE received for ${label}.`);
-  }
-
+/** Builds an SGP4 record from a TLE's two element lines. */
+export function toSatRec(line1: string, line2: string, label: string): SatRec {
   const satrec = twoline2satrec(line1, line2);
+
   if (satrec.error) {
     throw new OrbitalDataError(`TLE for ${label} rejected by SGP4 (code ${satrec.error}).`);
   }
@@ -225,7 +225,11 @@ export function findNextPass(
   from: Date,
   options: NextPassOptions = {},
 ): PassPrediction | null {
-  const { minElevationDeg = 10, searchHours = 48, coarseStepSeconds = 30 } = options;
+  const {
+    minElevationDeg = MIN_ELEVATION_DEG,
+    searchHours = 48,
+    coarseStepSeconds = 30,
+  } = options;
 
   const startMs = from.getTime();
   const endMs = startMs + searchHours * 3_600_000;
@@ -279,7 +283,7 @@ export function reportVisibility(
   from: Date,
   options: NextPassOptions = {},
 ): VisibilityReport {
-  const { minElevationDeg = 10, searchHours = 48 } = options;
+  const { minElevationDeg = MIN_ELEVATION_DEG, searchHours = 48 } = options;
 
   if (definition.orbitClass === 'GEO') {
     const elevation = elevationDegAt(satrec, site, from);

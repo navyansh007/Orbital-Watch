@@ -1,19 +1,27 @@
-/* Dark HUD theme: the globe fills the viewport, panels float over it. */
+/*
+ * Dark, minimal, typographic. The globe is the page; the UI is three
+ * transparent bands laid over it — nav, hero, telemetry — with hairline rules
+ * and gradient scrims instead of cards, so nothing boxes the imagery in.
+ */
 
 :root {
-  --bg: #04070d;
-  --panel-bg: rgb(8 14 24 / 82%);
-  --panel-border: rgb(120 180 255 / 18%);
-  --text: #e6f0ff;
-  --text-dim: #8ba3c0;
-  --accent: #4dd2ff;
+  --text: #fff;
+  --text-dim: rgb(255 255 255 / 58%);
+  --text-faint: rgb(255 255 255 / 36%);
+  --rule: rgb(255 255 255 / 13%);
+  --rule-strong: rgb(255 255 255 / 34%);
+  --alert: #ff6b6b;
 
-  --tone-quiet: #3ddc97;
-  --tone-unsettled: #ffd166;
-  --tone-minor: #ff9f45;
-  --tone-strong: #ff6b4a;
-  --tone-severe: #ff3b6b;
-  --tone-unknown: #56708f;
+  --tone-quiet: #4ade80;
+  --tone-unsettled: #facc15;
+  --tone-minor: #fb923c;
+  --tone-strong: #f87171;
+  --tone-severe: #ef4444;
+  --tone-unknown: rgb(255 255 255 / 40%);
+
+  /* One scale for every label in the UI. */
+  --label-size: 10px;
+  --label-tracking: 0.18em;
 
   color-scheme: dark;
 }
@@ -30,305 +38,465 @@ body,
 }
 
 body {
-  background: var(--bg);
+  background: #000;
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.45;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------- layout --*/
 
 .app {
   position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   height: 100%;
 }
 
-/* ---------- globe ---------- */
-
+/* The globe sits behind all three bands. */
 .globe,
 .globe__canvas {
   position: absolute;
   inset: 0;
 }
 
-.globe__canvas .cesium-widget-credits {
-  font-size: 10px;
-  opacity: 0.55;
+.topbar,
+.stage,
+.footbar {
+  position: relative;
+  z-index: 1;
 }
 
-.globe__error {
-  position: absolute;
-  inset: auto 0 0;
-  margin: 0;
-  padding: 12px 18px;
-  background: rgb(120 20 40 / 85%);
-  font-size: 13px;
-}
-
-/* ---------- chrome ---------- */
-
-.app__header {
-  position: absolute;
-  top: 20px;
-  left: 24px;
+/* Bands must not steal drags from the globe; their contents opt back in. */
+.stage {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 clamp(20px, 4vw, 48px) 28px;
   pointer-events: none;
 }
 
-.app__title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+.stage > * {
+  pointer-events: auto;
 }
 
-.app__tagline {
-  margin: 4px 0 0;
-  color: var(--text-dim);
-  font-size: 12px;
-}
+/* ---------------------------------------------------------------- topbar --*/
 
-.app__hud {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: min(330px, calc(100vw - 40px));
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-/* ---------- panels ---------- */
-
-.panel,
-.picker {
-  margin: 0;
-  padding: 12px 15px;
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(8px);
-}
-
-.panel__title {
-  margin: 0 0 8px;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.panel__subtitle {
-  margin: 0 0 10px;
-  color: var(--text-dim);
-  font-size: 12px;
-}
-
-.panel__footnote {
-  margin: 10px 0 0;
-  color: var(--text-dim);
-  font-size: 11px;
-}
-
-/* ---------- readouts ---------- */
-
-.readout {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.readout__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 3px 0;
-  border-bottom: 1px solid rgb(120 180 255 / 8%);
-}
-
-.readout__row:last-child {
-  border-bottom: none;
-}
-
-.readout dt {
-  color: var(--text-dim);
-  font-size: 12px;
-}
-
-.readout dd {
-  margin: 0;
-  font-size: 13px;
-  text-align: right;
-}
-
-/* ---------- satellite picker ---------- */
-
-.picker {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.picker__option {
+.topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 9px;
-  border: 1px solid transparent;
-  border-radius: 7px;
+  gap: clamp(20px, 4vw, 56px);
+  padding: 0 clamp(20px, 4vw, 48px);
+  height: 62px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(to bottom, rgb(0 0 0 / 72%), rgb(0 0 0 / 30%));
+}
+
+.wordmark {
+  flex: none;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.wordmark span {
+  color: var(--text-faint);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 30px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.picker__option[data-active="true"] {
-  border-color: var(--panel-border);
-  background: rgb(77 210 255 / 8%);
+.nav__item:hover {
+  color: var(--text);
 }
 
-.picker__option input {
-  accent-color: var(--accent);
-  margin: 0;
+.nav__item[aria-current='true'] {
+  border-bottom-color: var(--text);
+  color: var(--text);
 }
 
-.picker__swatch {
-  width: 9px;
-  height: 9px;
+.nav__dot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   flex: none;
 }
 
-.picker__label {
+.nav__class {
+  color: var(--text-faint);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+/* Geomagnetic readout, pinned right. */
+.kp {
   display: flex;
-  flex: 1;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.picker__label small {
-  color: var(--text-dim);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-}
-
-/* ---------- space weather badge ---------- */
-
-.badge {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 10px 12px;
-  border-left: 3px solid var(--tone-unknown);
-  border-radius: 6px;
-  background: rgb(255 255 255 / 4%);
-}
-
-.badge[data-tone="quiet"] { border-left-color: var(--tone-quiet); }
-.badge[data-tone="unsettled"] { border-left-color: var(--tone-unsettled); }
-.badge[data-tone="minor"] { border-left-color: var(--tone-minor); }
-.badge[data-tone="strong"] { border-left-color: var(--tone-strong); }
-.badge[data-tone="severe"] { border-left-color: var(--tone-severe); }
-
-.badge__kp {
-  font-size: 19px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.badge__level {
-  color: var(--text-dim);
-  font-size: 12px;
-}
-
-.badge__error {
-  margin: 0;
-  color: var(--tone-strong);
-  font-size: 12px;
-}
-
-/* ---------- misc ---------- */
-
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* ---------- sources footer ---------- */
-
-.app__sources {
-  position: absolute;
-  /* Clears the Cesium credit line, which Cesium pins to the bottom-left. */
-  bottom: 38px;
-  left: 24px;
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  flex-direction: column;
+  gap: 3px;
+  margin-left: auto;
+  text-align: right;
   white-space: nowrap;
 }
 
-.app__sources a {
-  color: var(--text-dim);
-  text-underline-offset: 2px;
-}
-
-.app__sources a:hover {
-  color: var(--accent);
-}
-
-/* ---------- responsive ---------- */
-
-@media (width <= 900px) {
-  .app__hud {
-    top: auto;
-    right: 16px;
-    bottom: 16px;
-    left: 16px;
-    max-height: 56vh;
-    width: auto;
-    padding-right: 2px;
-  }
-
-  .app__sources {
-    display: none;
-  }
-
-  .globe__status {
-    bottom: auto;
-    top: 76px;
-  }
-}
-
-@media (width <= 480px) {
-  .app__title {
-    font-size: 16px;
-  }
-
-  .app__hud {
-    max-height: 62vh;
-  }
-}
-
-.globe__status {
-  position: absolute;
-  bottom: 60px;
-  left: 24px;
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 12px;
-  letter-spacing: 0.08em;
+.kp__label {
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
   text-transform: uppercase;
 }
 
-.panel__error {
-  margin: 0 0 10px;
-  color: var(--tone-strong);
+.kp__value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.kp__value--error {
+  color: var(--alert);
   font-size: 12px;
+}
+
+.kp__level {
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kp__dot {
+  width: 6px;
+  height: 6px;
+  background: var(--tone-unknown);
+  border-radius: 50%;
+}
+
+.kp__dot[data-tone='quiet'] { background: var(--tone-quiet); }
+.kp__dot[data-tone='unsettled'] { background: var(--tone-unsettled); }
+.kp__dot[data-tone='minor'] { background: var(--tone-minor); }
+.kp__dot[data-tone='strong'] { background: var(--tone-strong); }
+.kp__dot[data-tone='severe'] { background: var(--tone-severe); }
+
+/* ------------------------------------------------------------------ hero --*/
+
+.hero {
+  max-width: min(640px, 100%);
+}
+
+.hero__eyebrow {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.hero__headline {
+  margin: 0;
+  font-size: clamp(34px, 5.6vw, 62px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 30px rgb(0 0 0 / 60%);
+}
+
+.hero__headline--clock {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.hero__headline--prompt {
+  font-size: clamp(24px, 3.4vw, 38px);
+  color: var(--text-dim);
+}
+
+.hero__meta {
+  margin: 14px 0 0;
+  max-width: 52ch;
+  color: var(--text-dim);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.hero__error {
+  margin: 12px 0 0;
+  color: var(--alert);
+  font-size: 12px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 12px 22px;
+  border: 1px solid var(--rule-strong);
+  background: rgb(0 0 0 / 30%);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.button:hover {
+  background: var(--text);
+  border-color: var(--text);
+  color: #000;
+}
+
+/* --------------------------------------------------------------- footbar --*/
+
+.footbar {
+  border-top: 1px solid var(--rule);
+  background: linear-gradient(to top, rgb(0 0 0 / 88%), rgb(0 0 0 / 40%));
+}
+
+.telemetry {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 2px 0;
+  padding: 16px clamp(20px, 4vw, 48px) 12px;
+}
+
+.telemetry--error {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.telemetry__error {
+  color: var(--alert);
+  font-size: 13px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding-right: 16px;
+}
+
+.stat__label {
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  font-weight: 500;
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
+.stat__value {
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat__note {
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.sources {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 clamp(20px, 4vw, 48px) 14px;
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sources__list {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+.sources a:hover {
+  color: var(--text);
+}
+
+/*
+ * Cesium's attribution, hosted in our footer via `creditContainer`.
+ * Cesium's own stylesheet positions this block absolutely for its default
+ * bottom-left placement, so it has to be unpinned before it will sit inline.
+ */
+.sources__credits {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 16px;
+  opacity: 0.6;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.sources__credits .cesium-widget-credits {
+  position: static !important;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.sources__credits .cesium-credit-logoContainer,
+.sources__credits .cesium-credit-textContainer,
+.sources__credits .cesium-credit-wrapper {
+  display: flex !important;
+  align-items: center;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.sources__credits img {
+  display: block;
+  height: 12px;
+  width: auto;
+}
+
+.sources__credits a {
+  color: var(--text-faint);
+}
+
+.sources__credits a:hover {
+  color: var(--text);
+}
+
+/* ----------------------------------------------------------- globe chrome -*/
+
+.globe__status,
+.globe__error {
+  position: absolute;
+  left: clamp(20px, 4vw, 48px);
+  margin: 0;
+  z-index: 1;
+}
+
+.globe__status {
+  top: 82px;
+  color: var(--text-faint);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
+.globe__error {
+  top: 82px;
+  max-width: 44ch;
+  padding: 12px 16px;
+  border-left: 2px solid var(--alert);
+  background: rgb(0 0 0 / 70%);
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------ responsive --*/
+
+@media (width <= 900px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    height: auto;
+    padding-block: 12px;
+  }
+
+  .kp {
+    order: 2;
+  }
+
+  .nav {
+    order: 3;
+    width: 100%;
+  }
+
+  .hero__meta {
+    font-size: 12px;
+  }
+
+  .telemetry {
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    padding-top: 12px;
+  }
+
+  .stat__value {
+    font-size: 13px;
+  }
+
+  .globe__status,
+  .globe__error {
+    top: 112px;
+  }
+}
+
+@media (width <= 560px) {
+  .stage {
+    padding-bottom: 18px;
+  }
+
+  .hero__headline {
+    font-size: clamp(28px, 9vw, 40px);
+  }
+
+  /* Below this width the strip is the only thing competing with the globe. */
+  .sources__list {
+    display: none;
+  }
 }

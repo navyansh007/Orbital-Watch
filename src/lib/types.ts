@@ -4,8 +4,6 @@ export type SatelliteId = 'iss' | 'goes';
 
 export type SatelliteDefinition = {
   id: SatelliteId;
-  /** Exact CelesTrak catalogue name, passed through to /api/tle. */
-  celestrakName: string;
   /** Short label for the HUD. */
   label: string;
   orbitClass: 'LEO' | 'GEO';
