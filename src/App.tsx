@@ -15,7 +15,7 @@ import { useGroundTrack } from './hooks/useGroundTrack';
 import { useLiveSatelliteState } from './hooks/useLiveSatelliteState';
 import { useSatelliteRecord } from './hooks/useSatelliteRecord';
 import { useSpaceWeather } from './hooks/useSpaceWeather';
-import { SATELLITES, reportVisibility } from './lib/satellites';
+import { SATELLITES, orbitalPeriodMinutes, reportVisibility } from './lib/satellites';
 import type { GroundSite, SatelliteId } from './lib/types';
 
 export default function App() {
@@ -28,6 +28,7 @@ export default function App() {
   const groundTrack = useGroundTrack(satrec, satellite, nowMs);
   const [locationError, setLocationError] = useState<string | null>(null);
   const { weather, error: weatherError } = useSpaceWeather();
+  const periodMinutes = satrec ? orbitalPeriodMinutes(satrec) : null;
 
   // A 48-hour search is a few thousand SGP4 calls — under 10 ms — so it runs
   // inline. It deliberately does not depend on the 1 Hz clock: a pass time does
@@ -75,7 +76,12 @@ export default function App() {
 
       <aside className="app__hud">
         <SatellitePicker selected={selectedId} onSelect={setSelectedId} />
-        <TelemetryPanel satellite={satellite} state={state} error={orbitError} />
+        <TelemetryPanel
+          satellite={satellite}
+          state={state}
+          error={orbitError}
+          periodMinutes={periodMinutes}
+        />
         <NextPassFinder
           satellite={satellite}
           site={site}
@@ -87,6 +93,18 @@ export default function App() {
         />
         <SpaceWeatherBadge weather={weather} error={weatherError} />
       </aside>
+
+      <footer className="app__sources">
+        Orbits{' '}
+        <a href="https://celestrak.org" target="_blank" rel="noreferrer">
+          CelesTrak
+        </a>{' '}
+        · Space weather{' '}
+        <a href="https://www.swpc.noaa.gov" target="_blank" rel="noreferrer">
+          NOAA SWPC
+        </a>{' '}
+        · SGP4 propagation
+      </footer>
     </div>
   );
 }

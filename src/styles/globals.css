@@ -95,7 +95,7 @@ body {
   bottom: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   width: min(330px, calc(100vw - 40px));
   overflow-y: auto;
   scrollbar-width: thin;
@@ -106,7 +106,7 @@ body {
 .panel,
 .picker {
   margin: 0;
-  padding: 14px 16px;
+  padding: 12px 15px;
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   background: var(--panel-bg);
@@ -145,7 +145,7 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 4px 0;
+  padding: 3px 0;
   border-bottom: 1px solid rgb(120 180 255 / 8%);
 }
 
@@ -260,18 +260,65 @@ body {
   cursor: pointer;
 }
 
-@media (width <= 720px) {
+/* ---------- sources footer ---------- */
+
+.app__sources {
+  position: absolute;
+  /* Clears the Cesium credit line, which Cesium pins to the bottom-left. */
+  bottom: 38px;
+  left: 24px;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.app__sources a {
+  color: var(--text-dim);
+  text-underline-offset: 2px;
+}
+
+.app__sources a:hover {
+  color: var(--accent);
+}
+
+/* ---------- responsive ---------- */
+
+@media (width <= 900px) {
   .app__hud {
     top: auto;
-    left: 20px;
-    max-height: 52vh;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    max-height: 56vh;
     width: auto;
+    padding-right: 2px;
+  }
+
+  .app__sources {
+    display: none;
+  }
+
+  .globe__status {
+    bottom: auto;
+    top: 76px;
+  }
+}
+
+@media (width <= 480px) {
+  .app__title {
+    font-size: 16px;
+  }
+
+  .app__hud {
+    max-height: 62vh;
   }
 }
 
 .globe__status {
   position: absolute;
-  bottom: 22px;
+  bottom: 60px;
   left: 24px;
   margin: 0;
   color: var(--text-dim);

@@ -8,9 +8,11 @@ type Props = {
   state: SatelliteState | null;
   /** Set when the orbital elements could not be loaded. */
   error?: string | null;
+  /** Orbital period in minutes, from the TLE's mean motion. */
+  periodMinutes?: number | null;
 };
 
-export function TelemetryPanel({ satellite, state, error }: Props) {
+export function TelemetryPanel({ satellite, state, error, periodMinutes }: Props) {
   return (
     <section className="panel">
       <h2 className="panel__title">Telemetry</h2>
@@ -31,6 +33,10 @@ export function TelemetryPanel({ satellite, state, error }: Props) {
         <Row
           label="Earth covered"
           value={state && `${(footprintCoverageFraction(state.altitudeKm) * 100).toFixed(1)} %`}
+        />
+        <Row
+          label="Orbital period"
+          value={periodMinutes ? `${periodMinutes.toFixed(1)} min` : null}
         />
         <Row label="Epoch" value={state && state.timestamp.toISOString().replace('T', ' ').slice(0, 19) + ' UTC'} />
       </dl>

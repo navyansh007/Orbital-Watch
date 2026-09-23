@@ -177,6 +177,16 @@ export function groundTrackAround(
   };
 }
 
+/**
+ * Orbital period in minutes, from the mean motion carried in the TLE.
+ *
+ * `satrec.no` is mean motion in radians per minute, so the period is simply one
+ * full revolution divided by it.
+ */
+export function orbitalPeriodMinutes(satrec: SatRec): number | null {
+  return satrec.no > 0 ? (2 * Math.PI) / satrec.no : null;
+}
+
 /** Elevation of the satellite above a ground site's local horizon, in degrees. */
 export function elevationDegAt(satrec: SatRec, site: GroundSite, timestamp: Date): number | null {
   const propagated = propagate(satrec, timestamp);
