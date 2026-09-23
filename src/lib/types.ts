@@ -25,6 +25,21 @@ export type SatelliteState = {
   velocityKmS: number;
 };
 
+/** A point on the Earth's surface, in degrees. */
+export type GeoPoint = {
+  latitudeDeg: number;
+  longitudeDeg: number;
+};
+
+/**
+ * The satellite's path over the ground, split at the present moment: where it
+ * has just been, and where it is about to go.
+ */
+export type GroundTrack = {
+  past: GeoPoint[];
+  future: GeoPoint[];
+};
+
 /** A single overhead pass of a satellite as seen from a ground site. */
 export type PassPrediction = {
   /** First moment the satellite clears the minimum elevation. */

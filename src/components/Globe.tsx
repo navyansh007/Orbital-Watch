@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import {
+  ArcType,
   Cartesian2,
   Cartesian3,
   Color,
@@ -15,13 +16,15 @@ import {
   Ion,
   LabelStyle,
   Math as CesiumMath,
+  PolylineDashMaterialProperty,
   VerticalOrigin,
   Viewer,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
+import { footprintRadiusKm } from '../lib/footprint';
 import { subsolarPoint } from '../lib/sun';
-import type { SatelliteDefinition, SatelliteState } from '../lib/types';
+import type { GeoPoint, GroundTrack, SatelliteDefinition, SatelliteState } from '../lib/types';
 
 // Tell Cesium where its workers, assets and third-party files were staged.
 // Must happen before the first Viewer is constructed.
@@ -38,12 +41,16 @@ const INITIAL_VIEW_HEIGHT_M = 26_000_000;
 type Props = {
   /** The satellite being tracked, or null until its orbit has loaded. */
   tracked: { definition: SatelliteDefinition; state: SatelliteState } | null;
+  /** Recent and upcoming sub-satellite path; null for orbits that hold station. */
+  groundTrack: GroundTrack | null;
 };
 
-export function Globe({ tracked }: Props) {
+export function Globe({ tracked, groundTrack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const markerRef = useRef<Entity | null>(null);
+  const footprintRef = useRef<Entity | null>(null);
+  const trackRef = useRef<Entity[]>([]);
   const [initError, setInitError] = useState<string | null>(null);
   const [tilesLoaded, setTilesLoaded] = useState(false);
 
@@ -80,6 +87,12 @@ export function Globe({ tracked }: Props) {
     }
 
     viewerRef.current = viewer;
+
+    // Dev-only handle for poking at the scene from the console. Stripped from
+    // production builds by the bundler.
+    if (import.meta.env.DEV) {
+      (window as unknown as { cesiumViewer?: Viewer }).cesiumViewer = viewer;
+    }
 
     // Real sun lighting, so the terminator on screen is the actual one.
     viewer.scene.globe.enableLighting = true;
@@ -159,6 +172,72 @@ export function Globe({ tracked }: Props) {
     });
   }, [tracked]);
 
+  // Footprint: the satellite's horizon projected onto the surface, sized from
+  // real geometry rather than drawn to taste.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (footprintRef.current) {
+      viewer.entities.remove(footprintRef.current);
+      footprintRef.current = null;
+    }
+    if (!tracked) return;
+
+    const { definition, state } = tracked;
+    const radiusM = footprintRadiusKm(state.altitudeKm) * 1000;
+    if (!(radiusM > 0)) return;
+
+    const color = Color.fromCssColorString(definition.color);
+
+    footprintRef.current = viewer.entities.add({
+      position: Cartesian3.fromDegrees(state.longitudeDeg, state.latitudeDeg),
+      ellipse: {
+        semiMajorAxis: radiusM,
+        semiMinorAxis: radiusM,
+        height: 0,
+        material: color.withAlpha(0.12),
+        outline: true,
+        outlineColor: color.withAlpha(0.75),
+      },
+    });
+  }, [tracked]);
+
+  // Ground track. Redrawn wholesale, but only when the coarse resample clock
+  // advances, so this is not per-tick work.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    for (const entity of trackRef.current) viewer.entities.remove(entity);
+    trackRef.current = [];
+
+    if (!groundTrack || !tracked) return;
+
+    const color = Color.fromCssColorString(tracked.definition.color);
+
+    const addPath = (points: GeoPoint[], style: { alpha: number; dashed: boolean }) => {
+      const positions = toPositions(points);
+      if (positions.length < 2) return;
+
+      trackRef.current.push(
+        viewer.entities.add({
+          polyline: {
+            positions,
+            width: 2,
+            arcType: ArcType.GEODESIC,
+            material: style.dashed
+              ? new PolylineDashMaterialProperty({ color: color.withAlpha(style.alpha) })
+              : color.withAlpha(style.alpha),
+          },
+        }),
+      );
+    };
+
+    addPath(groundTrack.past, { alpha: 0.85, dashed: false });
+    addPath(groundTrack.future, { alpha: 0.5, dashed: true });
+  }, [groundTrack, tracked]);
+
   return (
     <div className="globe">
       <div ref={containerRef} className="globe__canvas" />
@@ -166,4 +245,43 @@ export function Globe({ tracked }: Props) {
       {error && <p className="globe__error">{error}</p>}
     </div>
   );
+}
+
+/**
+ * Height of the drawn ground track, in metres.
+ *
+ * The track is a path over the ground, so conceptually it belongs at height 0 —
+ * but a line lying exactly on the surface z-fights with it. A few kilometres is
+ * invisible against a 6371 km radius and renders cleanly.
+ *
+ * Note this is deliberately NOT `clampToGround`: draping asks Cesium to load
+ * terrain detail along the whole path, and an ISS track spans some 20,000 km,
+ * which leaves the tile queue permanently busy and the globe never finishes
+ * loading. We render on the ellipsoid instead, which is exactly the surface we
+ * are using anyway.
+ */
+const TRACK_HEIGHT_M = 6000;
+
+/**
+ * Converts sampled ground points to Cesium positions, dropping any repeated
+ * point — a stationary orbit yields duplicates, which Cesium cannot draw a
+ * line through.
+ */
+function toPositions(points: GeoPoint[]): Cartesian3[] {
+  const flattened: number[] = [];
+  let previous: GeoPoint | null = null;
+
+  for (const point of points) {
+    if (
+      previous &&
+      Math.abs(point.latitudeDeg - previous.latitudeDeg) < 1e-6 &&
+      Math.abs(point.longitudeDeg - previous.longitudeDeg) < 1e-6
+    ) {
+      continue;
+    }
+    flattened.push(point.longitudeDeg, point.latitudeDeg, TRACK_HEIGHT_M);
+    previous = point;
+  }
+
+  return flattened.length >= 6 ? Cartesian3.fromDegreesArrayHeights(flattened) : [];
 }

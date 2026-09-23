@@ -21,7 +21,9 @@ import {
 import type { SatRec } from 'satellite.js';
 
 import type {
+  GeoPoint,
   GroundSite,
+  GroundTrack,
   PassPrediction,
   SatelliteDefinition,
   SatelliteId,
@@ -123,6 +125,54 @@ export function stateAt(satrec: SatRec, timestamp: Date): SatelliteState | null 
     longitudeDeg: degreesLong(geodetic.longitude),
     altitudeKm: geodetic.height,
     velocityKmS: Math.hypot(x, y, z),
+  };
+}
+
+/**
+ * Samples the sub-satellite point at a fixed cadence over a time window.
+ *
+ * Samples must be close enough together that consecutive points are less than
+ * half the globe apart, otherwise a renderer cannot tell which way round the
+ * Earth the path went.
+ */
+export function sampleGroundTrack(
+  satrec: SatRec,
+  from: Date,
+  to: Date,
+  stepSeconds: number,
+): GeoPoint[] {
+  const points: GeoPoint[] = [];
+  const stepMs = stepSeconds * 1000;
+
+  for (let ms = from.getTime(); ms <= to.getTime(); ms += stepMs) {
+    const state = stateAt(satrec, new Date(ms));
+    if (state) {
+      points.push({ latitudeDeg: state.latitudeDeg, longitudeDeg: state.longitudeDeg });
+    }
+  }
+
+  return points;
+}
+
+/**
+ * The ground track either side of `at`, as the HUD wants to draw it: the recent
+ * path behind the satellite and a short prediction ahead.
+ */
+export function groundTrackAround(
+  satrec: SatRec,
+  at: Date,
+  pastMinutes: number,
+  futureMinutes: number,
+  stepSeconds = 20,
+): GroundTrack {
+  return {
+    past: sampleGroundTrack(satrec, new Date(at.getTime() - pastMinutes * 60_000), at, stepSeconds),
+    future: sampleGroundTrack(
+      satrec,
+      at,
+      new Date(at.getTime() + futureMinutes * 60_000),
+      stepSeconds,
+    ),
   };
 }
 

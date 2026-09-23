@@ -11,6 +11,7 @@ import { NextPassFinder } from './components/NextPassFinder';
 import { SatellitePicker } from './components/SatellitePicker';
 import { SpaceWeatherBadge } from './components/SpaceWeatherBadge';
 import { TelemetryPanel } from './components/TelemetryPanel';
+import { useGroundTrack } from './hooks/useGroundTrack';
 import { useLiveSatelliteState } from './hooks/useLiveSatelliteState';
 import { useSatelliteRecord } from './hooks/useSatelliteRecord';
 import { SATELLITES } from './lib/satellites';
@@ -22,7 +23,8 @@ export default function App() {
 
   const satellite = SATELLITES[selectedId];
   const { satrec, error: orbitError } = useSatelliteRecord(satellite);
-  const state = useLiveSatelliteState(satrec);
+  const { nowMs, state } = useLiveSatelliteState(satrec);
+  const groundTrack = useGroundTrack(satrec, satellite, nowMs);
 
   const useMyLocation = () => {
     navigator.geolocation?.getCurrentPosition(({ coords }) =>
@@ -36,7 +38,10 @@ export default function App() {
 
   return (
     <div className="app">
-      <Globe tracked={state ? { definition: satellite, state } : null} />
+      <Globe
+        tracked={state ? { definition: satellite, state } : null}
+        groundTrack={groundTrack}
+      />
 
       <header className="app__header">
         <h1 className="app__title">Orbital Watch</h1>
