@@ -1,0 +1,270 @@
+/* Dark HUD theme: the globe fills the viewport, panels float over it. */
+
+:root {
+  --bg: #04070d;
+  --panel-bg: rgb(8 14 24 / 82%);
+  --panel-border: rgb(120 180 255 / 18%);
+  --text: #e6f0ff;
+  --text-dim: #8ba3c0;
+  --accent: #4dd2ff;
+
+  --tone-quiet: #3ddc97;
+  --tone-unsettled: #ffd166;
+  --tone-minor: #ff9f45;
+  --tone-strong: #ff6b4a;
+  --tone-severe: #ff3b6b;
+  --tone-unknown: #56708f;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+
+.app {
+  position: relative;
+  height: 100%;
+}
+
+/* ---------- globe ---------- */
+
+.globe,
+.globe__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.globe__canvas .cesium-widget-credits {
+  font-size: 10px;
+  opacity: 0.55;
+}
+
+.globe__error {
+  position: absolute;
+  inset: auto 0 0;
+  margin: 0;
+  padding: 12px 18px;
+  background: rgb(120 20 40 / 85%);
+  font-size: 13px;
+}
+
+/* ---------- chrome ---------- */
+
+.app__header {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  pointer-events: none;
+}
+
+.app__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.app__tagline {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.app__hud {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(330px, calc(100vw - 40px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* ---------- panels ---------- */
+
+.panel,
+.picker {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(8px);
+}
+
+.panel__title {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.panel__subtitle {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.panel__footnote {
+  margin: 10px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* ---------- readouts ---------- */
+
+.readout {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.readout__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgb(120 180 255 / 8%);
+}
+
+.readout__row:last-child {
+  border-bottom: none;
+}
+
+.readout dt {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.readout dd {
+  margin: 0;
+  font-size: 13px;
+  text-align: right;
+}
+
+/* ---------- satellite picker ---------- */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.picker__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.picker__option[data-active="true"] {
+  border-color: var(--panel-border);
+  background: rgb(77 210 255 / 8%);
+}
+
+.picker__option input {
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.picker__swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.picker__label {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.picker__label small {
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* ---------- space weather badge ---------- */
+
+.badge {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--tone-unknown);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.badge[data-tone="quiet"] { border-left-color: var(--tone-quiet); }
+.badge[data-tone="unsettled"] { border-left-color: var(--tone-unsettled); }
+.badge[data-tone="minor"] { border-left-color: var(--tone-minor); }
+.badge[data-tone="strong"] { border-left-color: var(--tone-strong); }
+.badge[data-tone="severe"] { border-left-color: var(--tone-severe); }
+
+.badge__kp {
+  font-size: 19px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge__level {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.badge__error {
+  margin: 0;
+  color: var(--tone-strong);
+  font-size: 12px;
+}
+
+/* ---------- misc ---------- */
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (width <= 720px) {
+  .app__hud {
+    top: auto;
+    left: 20px;
+    max-height: 52vh;
+    width: auto;
+  }
+}

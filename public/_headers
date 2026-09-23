@@ -1,0 +1,6 @@
+# Cesium ships large, content-hashed static assets — safe to cache hard.
+/cesium/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

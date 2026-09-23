@@ -1,0 +1,7 @@
+# Cloudflare Pages project config.
+#
+# The site is a static Vite bundle in dist/; the two data proxies in functions/
+# are picked up automatically as Pages Functions and run on the Workers runtime.
+name = "orbital-watch"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-24"

@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# local env — the Cesium Ion token is per-developer
+.env
+.env.local
+.env.*.local
+
+# cloudflare / wrangler
+.wrangler/
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# planning + agent scratch, intentionally not tracked
+OrbitalWatch_ProjectSpecs.md
+CLAUDE.md
+AGENTS.md
