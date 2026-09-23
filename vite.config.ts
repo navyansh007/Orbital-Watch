@@ -1,23 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { pagesFunctionsDev } from './vite-plugins/pages-functions-dev.ts';
 
-// Cesium ships its workers, assets, widget CSS and third-party code as static
-// files that must sit next to the bundle and be findable at runtime.
+// Cesium fetches its workers, textures and widget images at runtime by URL.
+// scripts/copy-cesium-assets.mjs stages them in public/cesium/ before dev and
+// build; this is where the library is told to look for them.
 const CESIUM_BASE_URL = 'cesium';
-const cesiumBuild = 'node_modules/cesium/Build/Cesium';
 
 export default defineConfig({
   plugins: [
     react(),
     pagesFunctionsDev(),
-    viteStaticCopy({
-      targets: ['Workers', 'Assets', 'Widgets', 'ThirdParty'].map((dir) => ({
-        src: `${cesiumBuild}/${dir}`,
-        dest: CESIUM_BASE_URL,
-      })),
-    }),
   ],
   build: {
     // Cesium alone is several megabytes; that is the cost of the globe and it is

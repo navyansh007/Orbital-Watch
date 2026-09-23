@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-cesium-assets.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/copy-cesium-assets.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "preview:cf": "npm run build && wrangler pages dev dist",
@@ -26,7 +28,6 @@
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
-    "vite-plugin-static-copy": "^4.1.1",
     "wrangler": "^4.137.0"
   },
   "description": "Live real-physics satellite tracker with coverage footprints and space-weather risk."

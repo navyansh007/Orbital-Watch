@@ -3,6 +3,9 @@ node_modules/
 
 # build output
 dist/
+
+# cesium runtime assets, staged from node_modules by scripts/copy-cesium-assets.mjs
+public/cesium/
 *.tsbuildinfo
 
 # local env — the Cesium Ion token is per-developer
