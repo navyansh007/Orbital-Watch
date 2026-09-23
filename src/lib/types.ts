@@ -50,6 +50,20 @@ export type PassPrediction = {
   maxElevationDeg: number;
 };
 
+/**
+ * What a ground site can expect from a satellite.
+ *
+ * A LEO satellite rises and sets, so the useful answer is "the next pass". A
+ * geostationary one never rises or sets — it is either permanently in view from
+ * a given site or permanently below its horizon — so a pass time would be
+ * meaningless there.
+ */
+export type VisibilityReport =
+  | { kind: 'pass'; pass: PassPrediction }
+  | { kind: 'always-visible'; elevationDeg: number }
+  | { kind: 'never-visible' }
+  | { kind: 'no-pass-in-window'; searchHours: number };
+
 export type GroundSite = {
   latitudeDeg: number;
   longitudeDeg: number;

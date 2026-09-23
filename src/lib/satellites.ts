@@ -28,6 +28,7 @@ import type {
   SatelliteDefinition,
   SatelliteId,
   SatelliteState,
+  VisibilityReport,
 } from './types';
 
 /**
@@ -251,6 +252,36 @@ export function findNextPass(
   }
 
   return null;
+}
+
+/**
+ * Answers "what will this site see of this satellite?", picking the question
+ * that actually makes sense for the orbit.
+ *
+ * Geostationary satellites hold station over one longitude, so they never rise
+ * or set: searching for a pass would either return the present instant or scan
+ * the whole window and find nothing. For those we report standing visibility.
+ */
+export function reportVisibility(
+  satrec: SatRec,
+  definition: SatelliteDefinition,
+  site: GroundSite,
+  from: Date,
+  options: NextPassOptions = {},
+): VisibilityReport {
+  const { minElevationDeg = 10, searchHours = 48 } = options;
+
+  if (definition.orbitClass === 'GEO') {
+    const elevation = elevationDegAt(satrec, site, from);
+    if (elevation === null) return { kind: 'never-visible' };
+
+    return elevation >= minElevationDeg
+      ? { kind: 'always-visible', elevationDeg: elevation }
+      : { kind: 'never-visible' };
+  }
+
+  const pass = findNextPass(satrec, site, from, options);
+  return pass ? { kind: 'pass', pass } : { kind: 'no-pass-in-window', searchHours };
 }
 
 /** Walks a pass forward from its rise time to find its peak and set times. */

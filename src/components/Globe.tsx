@@ -15,9 +15,12 @@ import {
   Entity,
   Ion,
   LabelStyle,
+  Cartographic,
   Math as CesiumMath,
   PolygonHierarchy,
   PolylineDashMaterialProperty,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEventType,
   VerticalOrigin,
   Viewer,
 } from 'cesium';
@@ -25,7 +28,13 @@ import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 import { footprintRing } from '../lib/footprint';
 import { subsolarPoint } from '../lib/sun';
-import type { GeoPoint, GroundTrack, SatelliteDefinition, SatelliteState } from '../lib/types';
+import type {
+  GeoPoint,
+  GroundSite,
+  GroundTrack,
+  SatelliteDefinition,
+  SatelliteState,
+} from '../lib/types';
 
 // Tell Cesium where its workers, assets and third-party files were staged.
 // Must happen before the first Viewer is constructed.
@@ -44,14 +53,26 @@ type Props = {
   tracked: { definition: SatelliteDefinition; state: SatelliteState } | null;
   /** Recent and upcoming sub-satellite path; null for orbits that hold station. */
   groundTrack: GroundTrack | null;
+  /** The observer location used for pass prediction. */
+  site: GroundSite | null;
+  /** Called when the user clicks a point on the Earth. */
+  onPickSite: (site: GroundSite) => void;
 };
 
-export function Globe({ tracked, groundTrack }: Props) {
+export function Globe({ tracked, groundTrack, site, onPickSite }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const markerRef = useRef<Entity | null>(null);
   const footprintRef = useRef<Entity[]>([]);
   const trackedIdRef = useRef<string | null>(null);
+  const siteMarkerRef = useRef<Entity | null>(null);
+
+  // Held in a ref so the click handler is registered once and never needs
+  // re-binding when the callback identity changes.
+  const onPickSiteRef = useRef(onPickSite);
+  useEffect(() => {
+    onPickSiteRef.current = onPickSite;
+  }, [onPickSite]);
   const trackRef = useRef<Entity[]>([]);
   const [initError, setInitError] = useState<string | null>(null);
   const [tilesLoaded, setTilesLoaded] = useState(false);
@@ -113,8 +134,24 @@ export function Globe({ tracked, groundTrack }: Props) {
     };
     globe.tileLoadProgressEvent.addEventListener(onTileProgress);
 
+    // Click the Earth to choose an observer location. Clicks that miss the
+    // globe (out in space) are ignored rather than snapped to a nearby point.
+    const clickHandler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+    clickHandler.setInputAction((event: ScreenSpaceEventHandler.PositionedEvent) => {
+      const hit = viewer.camera.pickEllipsoid(event.position, globe.ellipsoid);
+      if (!hit) return;
+
+      const carto = Cartographic.fromCartesian(hit);
+      onPickSiteRef.current({
+        latitudeDeg: CesiumMath.toDegrees(carto.latitude),
+        longitudeDeg: CesiumMath.toDegrees(carto.longitude),
+        altitudeKm: 0,
+      });
+    }, ScreenSpaceEventType.LEFT_CLICK);
+
     return () => {
       viewerRef.current = null;
+      clickHandler.destroy();
       if (!viewer.isDestroyed()) {
         globe.tileLoadProgressEvent.removeEventListener(onTileProgress);
         viewer.destroy();
@@ -273,6 +310,38 @@ export function Globe({ tracked, groundTrack }: Props) {
     addPath(groundTrack.past, { alpha: 0.85, dashed: false });
     addPath(groundTrack.future, { alpha: 0.5, dashed: true });
   }, [groundTrack, tracked]);
+
+  // Observer marker.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (siteMarkerRef.current) {
+      viewer.entities.remove(siteMarkerRef.current);
+      siteMarkerRef.current = null;
+    }
+    if (!site) return;
+
+    siteMarkerRef.current = viewer.entities.add({
+      position: Cartesian3.fromDegrees(site.longitudeDeg, site.latitudeDeg),
+      point: {
+        pixelSize: 9,
+        color: Color.WHITE,
+        outlineColor: Color.BLACK.withAlpha(0.6),
+        outlineWidth: 2,
+      },
+      label: {
+        text: 'Ground site',
+        font: '600 11px ui-sans-serif, system-ui, sans-serif',
+        fillColor: Color.WHITE,
+        outlineColor: Color.BLACK,
+        outlineWidth: 3,
+        style: LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: VerticalOrigin.TOP,
+        pixelOffset: new Cartesian2(0, 12),
+      },
+    });
+  }, [site]);
 
   return (
     <div className="globe">
