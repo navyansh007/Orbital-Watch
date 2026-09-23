@@ -16,13 +16,14 @@ import {
   Ion,
   LabelStyle,
   Math as CesiumMath,
+  PolygonHierarchy,
   PolylineDashMaterialProperty,
   VerticalOrigin,
   Viewer,
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
-import { footprintRadiusKm } from '../lib/footprint';
+import { footprintRing } from '../lib/footprint';
 import { subsolarPoint } from '../lib/sun';
 import type { GeoPoint, GroundTrack, SatelliteDefinition, SatelliteState } from '../lib/types';
 
@@ -49,7 +50,8 @@ export function Globe({ tracked, groundTrack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const markerRef = useRef<Entity | null>(null);
-  const footprintRef = useRef<Entity | null>(null);
+  const footprintRef = useRef<Entity[]>([]);
+  const trackedIdRef = useRef<string | null>(null);
   const trackRef = useRef<Entity[]>([]);
   const [initError, setInitError] = useState<string | null>(null);
   const [tilesLoaded, setTilesLoaded] = useState(false);
@@ -178,28 +180,62 @@ export function Globe({ tracked, groundTrack }: Props) {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
 
-    if (footprintRef.current) {
-      viewer.entities.remove(footprintRef.current);
-      footprintRef.current = null;
-    }
+    for (const entity of footprintRef.current) viewer.entities.remove(entity);
+    footprintRef.current = [];
+
     if (!tracked) return;
 
     const { definition, state } = tracked;
-    const radiusM = footprintRadiusKm(state.altitudeKm) * 1000;
-    if (!(radiusM > 0)) return;
+    const ring = footprintRing(
+      { latitudeDeg: state.latitudeDeg, longitudeDeg: state.longitudeDeg },
+      state.altitudeKm,
+    );
+    if (ring.length < 3) return;
 
     const color = Color.fromCssColorString(definition.color);
+    const positions = ringPositions(ring);
 
-    footprintRef.current = viewer.entities.add({
-      position: Cartesian3.fromDegrees(state.longitudeDeg, state.latitudeDeg),
-      ellipse: {
-        semiMajorAxis: radiusM,
-        semiMinorAxis: radiusM,
-        height: 0,
-        material: color.withAlpha(0.12),
-        outline: true,
-        outlineColor: color.withAlpha(0.75),
-      },
+    footprintRef.current.push(
+      viewer.entities.add({
+        polygon: {
+          hierarchy: new PolygonHierarchy(positions),
+          material: color.withAlpha(0.1),
+          arcType: ArcType.GEODESIC,
+          height: SURFACE_OVERLAY_HEIGHT_M,
+        },
+      }),
+      viewer.entities.add({
+        polyline: {
+          // Repeat the first point so the outline closes.
+          positions: [...positions, positions[0]],
+          width: 2,
+          arcType: ArcType.GEODESIC,
+          material: color.withAlpha(0.8),
+        },
+      }),
+    );
+  }, [tracked]);
+
+  // Switching satellites should actually show the new one — otherwise the
+  // LEO/GEO contrast happens off screen. Deliberately skipped on first load, so
+  // the opening shot stays the sunlit hemisphere.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed() || !tracked) return;
+
+    const { definition, state } = tracked;
+    const previousId = trackedIdRef.current;
+    trackedIdRef.current = definition.id;
+    if (previousId === null || previousId === definition.id) return;
+
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(
+        state.longitudeDeg,
+        state.latitudeDeg,
+        // Far enough out to hold the whole footprint in frame.
+        definition.orbitClass === 'GEO' ? 60_000_000 : 18_000_000,
+      ),
+      duration: 1.8,
     });
   }, [tracked]);
 
@@ -248,11 +284,11 @@ export function Globe({ tracked, groundTrack }: Props) {
 }
 
 /**
- * Height of the drawn ground track, in metres.
+ * Height at which surface overlays (ground track, footprint) are drawn, in metres.
  *
- * The track is a path over the ground, so conceptually it belongs at height 0 —
- * but a line lying exactly on the surface z-fights with it. A few kilometres is
- * invisible against a 6371 km radius and renders cleanly.
+ * These belong conceptually at height 0, but geometry lying exactly on the
+ * ellipsoid z-fights with it and gets depth-culled at distance. A few kilometres
+ * is invisible against a 6371 km radius and renders cleanly at every zoom level.
  *
  * Note this is deliberately NOT `clampToGround`: draping asks Cesium to load
  * terrain detail along the whole path, and an ISS track spans some 20,000 km,
@@ -260,7 +296,7 @@ export function Globe({ tracked, groundTrack }: Props) {
  * loading. We render on the ellipsoid instead, which is exactly the surface we
  * are using anyway.
  */
-const TRACK_HEIGHT_M = 6000;
+const SURFACE_OVERLAY_HEIGHT_M = 6000;
 
 /**
  * Converts sampled ground points to Cesium positions, dropping any repeated
@@ -279,9 +315,20 @@ function toPositions(points: GeoPoint[]): Cartesian3[] {
     ) {
       continue;
     }
-    flattened.push(point.longitudeDeg, point.latitudeDeg, TRACK_HEIGHT_M);
+    flattened.push(point.longitudeDeg, point.latitudeDeg, SURFACE_OVERLAY_HEIGHT_M);
     previous = point;
   }
 
   return flattened.length >= 6 ? Cartesian3.fromDegreesArrayHeights(flattened) : [];
+}
+
+/** Ring points to Cesium positions, laid just above the surface. */
+function ringPositions(ring: GeoPoint[]): Cartesian3[] {
+  return Cartesian3.fromDegreesArrayHeights(
+    ring.flatMap((point) => [
+      point.longitudeDeg,
+      point.latitudeDeg,
+      SURFACE_OVERLAY_HEIGHT_M,
+    ]),
+  );
 }
