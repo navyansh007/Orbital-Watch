@@ -1,8 +1,8 @@
 /**
  * HUD shell.
  *
- * Owns the selected satellite and the ground site; the live propagation loop,
- * globe entities and data fetching are wired in over the following milestones.
+ * Owns the tracked satellite and the ground site, and runs the propagation
+ * loop that every panel reads from.
  */
 import { useState } from 'react';
 
@@ -11,6 +11,8 @@ import { NextPassFinder } from './components/NextPassFinder';
 import { SatellitePicker } from './components/SatellitePicker';
 import { SpaceWeatherBadge } from './components/SpaceWeatherBadge';
 import { TelemetryPanel } from './components/TelemetryPanel';
+import { useLiveSatelliteState } from './hooks/useLiveSatelliteState';
+import { useSatelliteRecord } from './hooks/useSatelliteRecord';
 import { SATELLITES } from './lib/satellites';
 import type { GroundSite, SatelliteId } from './lib/types';
 
@@ -19,6 +21,8 @@ export default function App() {
   const [site, setSite] = useState<GroundSite | null>(null);
 
   const satellite = SATELLITES[selectedId];
+  const { satrec, error: orbitError } = useSatelliteRecord(satellite);
+  const state = useLiveSatelliteState(satrec);
 
   const useMyLocation = () => {
     navigator.geolocation?.getCurrentPosition(({ coords }) =>
@@ -32,7 +36,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Globe />
+      <Globe tracked={state ? { definition: satellite, state } : null} />
 
       <header className="app__header">
         <h1 className="app__title">Orbital Watch</h1>
@@ -41,7 +45,7 @@ export default function App() {
 
       <aside className="app__hud">
         <SatellitePicker selected={selectedId} onSelect={setSelectedId} />
-        <TelemetryPanel satellite={satellite} state={null} />
+        <TelemetryPanel satellite={satellite} state={state} error={orbitError} />
         <NextPassFinder
           satellite={satellite}
           site={site}

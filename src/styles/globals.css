@@ -279,3 +279,9 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+.panel__error {
+  margin: 0 0 10px;
+  color: var(--tone-strong);
+  font-size: 12px;
+}

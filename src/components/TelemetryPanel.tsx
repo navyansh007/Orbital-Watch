@@ -6,13 +6,18 @@ type Props = {
   satellite: SatelliteDefinition;
   /** Null until the first propagation completes. */
   state: SatelliteState | null;
+  /** Set when the orbital elements could not be loaded. */
+  error?: string | null;
 };
 
-export function TelemetryPanel({ satellite, state }: Props) {
+export function TelemetryPanel({ satellite, state, error }: Props) {
   return (
     <section className="panel">
       <h2 className="panel__title">Telemetry</h2>
       <p className="panel__subtitle">{satellite.blurb}</p>
+
+      {error && <p className="panel__error">{error}</p>}
+      {!error && !state && <p className="panel__footnote">Loading orbital elements…</p>}
 
       <dl className="readout">
         <Row label="Latitude" value={state && `${formatDeg(state.latitudeDeg)} ${state.latitudeDeg >= 0 ? 'N' : 'S'}`} />

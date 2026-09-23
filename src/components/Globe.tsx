@@ -6,10 +6,22 @@
  * subtree, so Cesium keeps full ownership of its canvas.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Cartesian3, Ion, Math as CesiumMath, Viewer } from 'cesium';
+import {
+  Cartesian2,
+  Cartesian3,
+  Color,
+  ConstantPositionProperty,
+  Entity,
+  Ion,
+  LabelStyle,
+  Math as CesiumMath,
+  VerticalOrigin,
+  Viewer,
+} from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 import { subsolarPoint } from '../lib/sun';
+import type { SatelliteDefinition, SatelliteState } from '../lib/types';
 
 // Tell Cesium where its workers, assets and third-party files were staged.
 // Must happen before the first Viewer is constructed.
@@ -23,9 +35,15 @@ const MISSING_TOKEN_MESSAGE =
 /** Camera height on load, in metres — frames the full disc with room to spare. */
 const INITIAL_VIEW_HEIGHT_M = 26_000_000;
 
-export function Globe() {
+type Props = {
+  /** The satellite being tracked, or null until its orbit has loaded. */
+  tracked: { definition: SatelliteDefinition; state: SatelliteState } | null;
+};
+
+export function Globe({ tracked }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  const markerRef = useRef<Entity | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [tilesLoaded, setTilesLoaded] = useState(false);
 
@@ -88,6 +106,58 @@ export function Globe() {
       }
     };
   }, []);
+
+  // Cesium owns its entities imperatively, so the marker is mutated in place
+  // rather than re-created each tick.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    if (!tracked) {
+      if (markerRef.current) {
+        viewer.entities.remove(markerRef.current);
+        markerRef.current = null;
+      }
+      return;
+    }
+
+    const { definition, state } = tracked;
+    const position = Cartesian3.fromDegrees(
+      state.longitudeDeg,
+      state.latitudeDeg,
+      state.altitudeKm * 1000,
+    );
+    const color = Color.fromCssColorString(definition.color);
+
+    const existing = markerRef.current;
+    if (existing && existing.name === definition.id) {
+      existing.position = new ConstantPositionProperty(position);
+      return;
+    }
+
+    if (existing) viewer.entities.remove(existing);
+
+    markerRef.current = viewer.entities.add({
+      name: definition.id,
+      position,
+      point: {
+        pixelSize: 11,
+        color,
+        outlineColor: Color.BLACK.withAlpha(0.6),
+        outlineWidth: 2,
+      },
+      label: {
+        text: definition.label,
+        font: '600 12px ui-sans-serif, system-ui, sans-serif',
+        fillColor: color,
+        outlineColor: Color.BLACK,
+        outlineWidth: 3,
+        style: LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: VerticalOrigin.BOTTOM,
+        pixelOffset: new Cartesian2(0, -14),
+      },
+    });
+  }, [tracked]);
 
   return (
     <div className="globe">
