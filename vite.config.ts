@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { pagesFunctionsDev } from './vite-plugins/pages-functions-dev.ts';
+import { workerApiDev } from './vite-plugins/worker-api-dev.ts';
 
 // Cesium fetches its workers, textures and widget images at runtime by URL.
 // scripts/copy-cesium-assets.mjs stages them in public/cesium/ before dev and
@@ -10,7 +10,7 @@ const CESIUM_BASE_URL = 'cesium';
 export default defineConfig({
   plugins: [
     react(),
-    pagesFunctionsDev(),
+    workerApiDev(),
   ],
   build: {
     // Cesium alone is several megabytes; that is the cost of the globe and it is

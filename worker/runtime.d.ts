@@ -1,6 +1,5 @@
 /**
- * Cloudflare's Workers runtime extends the standard web platform in two ways we
- * rely on. Neither is in the DOM lib, so they are declared here.
+ * Pieces of the Cloudflare Workers runtime that are not in the DOM lib.
  */
 
 interface CacheStorage {
@@ -14,4 +13,9 @@ interface RequestInit {
     cacheTtl?: number;
     cacheEverything?: boolean;
   };
+}
+
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+  passThroughOnException(): void;
 }

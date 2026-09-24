@@ -1,9 +1,9 @@
 import type { Connect, Plugin, ViteDevServer } from 'vite';
 
 /**
- * Serves the Cloudflare Pages Functions in `functions/api/*` from the Vite dev
- * server, so `npm run dev` exercises the same handler code that runs on the
- * edge in production. No duplicated proxy logic.
+ * Serves the Worker's API routes from `worker/api/*` on the Vite dev server, so
+ * `npm run dev` exercises the same handler code that runs on the edge in
+ * production. No duplicated proxy logic.
  *
  * Responses are cached in memory for the `s-maxage` the handler itself asks
  * for. In production Cloudflare does this, which is what keeps upstream traffic
@@ -12,9 +12,9 @@ import type { Connect, Plugin, ViteDevServer } from 'vite';
  * start returning 403 to a machine that refetches the same elements hundreds of
  * times an hour.
  */
-export function pagesFunctionsDev(): Plugin {
+export function workerApiDev(): Plugin {
   return {
-    name: 'orbital-watch:pages-functions-dev',
+    name: 'orbital-watch:worker-api-dev',
     apply: 'serve',
     configureServer(server: ViteDevServer) {
       server.middlewares.use('/api', createApiMiddleware(server));
@@ -51,7 +51,7 @@ function createApiMiddleware(server: ViteDevServer): Connect.NextHandleFunction 
     }
 
     try {
-      const mod = await server.ssrLoadModule(`/functions/api/${route}.ts`);
+      const mod = await server.ssrLoadModule(`/worker/api/${route}.ts`);
       const handler = mod.onRequestGet as
         | ((ctx: { request: Request }) => Promise<Response>)
         | undefined;

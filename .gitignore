@@ -13,6 +13,10 @@ public/cesium/
 .env.local
 .env.*.local
 
+# a missing pipe turns `cat .env.local | pbcopy` into a file holding the token
+pbcopy
+pbpaste
+
 # cloudflare / wrangler
 .wrangler/
 

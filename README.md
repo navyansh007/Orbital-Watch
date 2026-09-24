@@ -91,11 +91,11 @@ changes — it publishes updates two or three times a day and checks its files a
 most every two hours. Three things in this codebase exist specifically to stay
 well under that, and none of them should be weakened:
 
-- **The edge function caches explicitly, via the Cache API.** This is the one
-  that matters most: a `Cache-Control` header on its own does *not* make
-  Cloudflare cache a Pages Function response. Dynamic responses are only stored
-  if you put them in the cache yourself, so without the explicit `cache.put`
-  CelesTrak would be hit on essentially every page load.
+- **The Worker caches explicitly, via the Cache API.** This is the one that
+  matters most: a `Cache-Control` header on its own does *not* make Cloudflare
+  cache a dynamic Worker response. It is only stored if you put it in the cache
+  yourself, so without the explicit `cache.put` CelesTrak would be hit on
+  essentially every page load.
 - **One batched request covers both satellites**, and the client keeps both
   orbits in memory — switching satellites issues no request at all.
 - **A six-hour TTL**, matched by the client's refresh interval. That is far
@@ -114,7 +114,7 @@ morning of hot reloading does not get your own IP blocked.
 - **Vite + React + TypeScript** — static SPA, no server rendering
 - **CesiumJS** (raw, mounted in one component) — 3D globe and imagery
 - **satellite.js** — SGP4 propagation, entirely client-side
-- **Cloudflare Pages** — static hosting plus two Pages Functions as data proxies
+- **Cloudflare Workers** — static assets plus a small Worker for the two data proxies
 
 | Source | Used for | Route | Cached |
 |---|---|---|---|
@@ -123,6 +123,9 @@ morning of hot reloading does not get your own IP blocked.
 
 `/api/tle` takes no parameters: it returns elements for **every** tracked
 satellite in one response, so switching satellites in the UI costs no network.
+
+The runtime serves `dist/` directly and only invokes the Worker for paths that
+are not static files, so the Worker sits out of the way of ordinary page loads.
 
 ## Getting started
 
@@ -137,8 +140,8 @@ A free **Cesium Ion access token** is required for Earth imagery — get one at
 `VITE_CESIUM_ION_TOKEN` in `.env.local`. It is a client-side token by nature, so
 it carries Vite's `VITE_` prefix.
 
-`npm run dev` also serves the Pages Functions, so `/api/*` works locally against
-the same handler code that runs in production.
+`npm run dev` also serves the Worker's API routes, so `/api/*` works locally
+against the same handler code that runs in production.
 
 ## Scripts
 
@@ -148,15 +151,16 @@ the same handler code that runs in production.
 | `npm run build` | Typecheck all three TS projects, then build to `dist/` |
 | `npm run preview` | Serve the build statically (no `/api/*`) |
 | `npm run preview:cf` | Serve the build through Wrangler — closest to production |
-| `npm run deploy` | Build and deploy to Cloudflare Pages |
+| `npm run deploy` | Build and deploy to Cloudflare |
 | `npm run lint` / `npm run typecheck` | oxlint / `tsc -b` |
 
 ## Layout
 
 ```
-functions/api/          Pages Functions (Workers runtime, web APIs only)
-  tle.ts                CelesTrak proxy
-  spaceweather.ts       NOAA SWPC proxy
+worker/                 Cloudflare Worker (Workers runtime, web APIs only)
+  index.ts              routes /api/* and hands everything else to ASSETS
+  api/tle.ts            CelesTrak proxy
+  api/spaceweather.ts   NOAA SWPC proxy
 src/
   components/
     Globe.tsx           The only file that touches Cesium or WebGL
@@ -175,17 +179,27 @@ src/
     types.ts            shared domain types
 shared/catalogue.ts     catalogue numbers, shared by browser and edge
 scripts/                stages Cesium's runtime assets into public/
-vite-plugins/           runs functions/api/* on the dev server
+vite-plugins/           runs worker/api/* on the dev server
 ```
 
 ## Deployment
 
-Cloudflare Pages, connected to this repo:
+Cloudflare Workers, connected to this repo:
 
-- Build command: `npm run build`
-- Output directory: `dist`
-- Environment variable: `VITE_CESIUM_ION_TOKEN` (needed at **build** time — Vite
-  inlines it into the bundle)
+| Setting | Value |
+|---|---|
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Environment variable | `VITE_CESIUM_ION_TOKEN` |
+
+`wrangler.toml` supplies the rest: the Worker entry, the `dist/` asset
+directory, and the `ASSETS` binding.
+
+The Ion token is needed at **build** time — Vite inlines it into the bundle, so
+it has to be set before the first build. That also means it is public: restrict
+it in Cesium Ion to the assets and domain you actually use.
+
+Or deploy straight from a terminal with `npx wrangler login && npm run deploy`.
 
 ## Notes for anyone extending this
 
@@ -196,8 +210,11 @@ Cloudflare Pages, connected to this repo:
   which keeps the tile queue permanently busy and the globe never finishes
   loading. The track renders on the ellipsoid instead, a few km up to avoid
   z-fighting.
-- **The edge functions must stay Node-free.** They run on the Workers runtime:
-  web APIs only, no `fs`, no native modules.
+- **The Worker must stay Node-free.** It runs on the Workers runtime: web APIs
+  only, no `fs`, no native modules.
+- **`run_worker_first` in `wrangler.toml` is load-bearing.** Without it the
+  single-page-app fallback answers `/api/*` with `index.html` instead of letting
+  the Worker run.
 - **Do not add per-satellite TLE requests.** See the CelesTrak section above —
   the batching and the explicit edge cache are load-bearing, not tidiness.
 

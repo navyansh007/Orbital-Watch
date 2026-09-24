@@ -1,9 +1,18 @@
-# Cloudflare Pages project config.
+# Cloudflare Worker with static assets.
 #
-# The site is a static Vite bundle in dist/; the two data proxies in functions/
-# are picked up automatically as Pages Functions and run on the Workers runtime.
+# The Vite build writes the site to dist/; the runtime serves those files
+# directly and only invokes the Worker for paths that are not assets, which is
+# how the two data routes in worker/api are reached.
 name = "orbital-watch"
-pages_build_output_dir = "dist"
+main = "worker/index.ts"
 # Must not be in the future: the Workers runtime rejects a date it does not yet
 # know about, which fails the build rather than degrading.
 compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+# Single page app: unknown paths return index.html rather than a bare 404.
+not_found_handling = "single-page-application"
+# ...but the API must reach the Worker rather than being answered with index.html.
+run_worker_first = ["/api/*"]
