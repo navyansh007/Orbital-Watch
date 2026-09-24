@@ -10,6 +10,8 @@ horizon-limited coverage area, the same figure ham operators and ground-station
 planners work with. Nothing here is simulated, mocked, or hardcoded — every
 number comes from live public data.
 
+![The ISS over southeast Asia, with its ground track, coverage footprint and a live pass countdown](docs/screenshots/desktop-iss.jpg)
+
 ## What you can do
 
 - **Watch the ISS move.** Position refreshes every second, propagated from real
@@ -23,6 +25,24 @@ number comes from live public data.
 - **Switch to GOES 19** and watch the contrast — a geostationary satellite sits
   motionless over the Americas with a 9041 km footprint covering 42.4% of the planet.
 - **Check space weather.** NOAA's planetary K-index, colour-coded on the real G-scale.
+
+![GOES 19 in geostationary orbit, its footprint covering 42% of the planet](docs/screenshots/desktop-goes.jpg)
+
+*GOES 19 sits over the Americas. The Earth is dark here because the lighting is
+real — this was captured at 05:03 UTC, the middle of the night over its
+footprint.*
+
+## On a phone
+
+The layout is responsive down to 320px: the top bar folds to two rows, readouts
+reflow to three columns, and the epoch and satellite-name columns step aside to
+give the globe back its screen space. Landscape is the better experience — a
+globe wants width — so portrait shows a brief hint suggesting a turn. Nothing
+is blocked either way.
+
+| Landscape | Portrait |
+|---|---|
+| ![Landscape phone view](docs/screenshots/mobile-landscape.jpg) | ![Portrait phone view with the rotate hint](docs/screenshots/mobile-portrait.jpg) |
 
 ## How it works
 
@@ -140,7 +160,8 @@ functions/api/          Pages Functions (Workers runtime, web APIs only)
 src/
   components/
     Globe.tsx           The only file that touches Cesium or WebGL
-    TelemetryPanel.tsx  SatellitePicker.tsx  NextPassFinder.tsx  SpaceWeatherBadge.tsx
+    TelemetryPanel.tsx  SatellitePicker.tsx  NextPassFinder.tsx
+    SpaceWeatherBadge.tsx  RotateHint.tsx
   hooks/
     useOrbitalElements.ts    batched TLE fetch for every satellite
     useLiveSatelliteState.ts 1 Hz propagation loop

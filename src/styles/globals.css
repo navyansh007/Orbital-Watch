@@ -34,6 +34,9 @@ html,
 body,
 #root {
   height: 100%;
+  /* Dynamic viewport units track mobile browser chrome as it hides and shows,
+     so the layout never sits under a collapsing URL bar. */
+  height: 100dvh;
   margin: 0;
 }
 
@@ -44,7 +47,16 @@ body {
   font-size: 14px;
   line-height: 1.45;
   overflow: hidden;
+  /* The globe owns every gesture; the page itself must not rubber-band or
+     pull-to-refresh underneath it. */
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Cesium handles its own pan and pinch, so the browser must not claim them. */
+.globe__canvas canvas {
+  touch-action: none;
 }
 
 button {
@@ -88,7 +100,11 @@ a {
   pointer-events: none;
 }
 
-.stage > * {
+/* Only interactive controls capture input — the rest of the hero area stays
+   transparent to taps so the globe underneath remains reachable, which matters
+   most on a phone where the block covers a third of the screen. */
+.stage button,
+.stage a {
   pointer-events: auto;
 }
 
@@ -132,7 +148,8 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 0 3px;
+  min-height: 32px;
+  padding: 4px 0;
   border: 0;
   border-bottom: 1px solid transparent;
   background: none;
@@ -273,6 +290,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   margin-top: 22px;
   padding: 12px 22px;
   border: 1px solid var(--rule-strong);
@@ -420,6 +438,65 @@ a {
   color: var(--text);
 }
 
+/* ------------------------------------------------------------ rotate hint --*/
+
+/*
+ * Only ever shown on a phone held upright; see the orientation query below.
+ * Kept out of the flow so it cannot shift the layout it is commenting on.
+ */
+.rotate-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border: 1px solid var(--rule-strong);
+  background: rgb(0 0 0 / 82%);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  animation: rotate-hint-in 0.4s ease both;
+  pointer-events: none;
+}
+
+.rotate-hint__icon {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text);
+}
+
+@keyframes rotate-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@media (orientation: portrait) and (width <= 620px) {
+  .rotate-hint {
+    display: flex;
+  }
+}
+
+/* Anything that removes motion should not have a toast sliding in. */
+@media (prefers-reduced-motion: reduce) {
+  .rotate-hint {
+    animation: none;
+  }
+}
+
 /* ----------------------------------------------------------- globe chrome -*/
 
 .globe__status,
@@ -450,14 +527,16 @@ a {
 
 /* ------------------------------------------------------------ responsive --*/
 
+/* Tablets and small laptops: the top bar can no longer hold one row. */
 @media (width <= 900px) {
   .topbar {
     flex-wrap: wrap;
-    gap: 10px 20px;
+    gap: 8px 20px;
     height: auto;
     padding-block: 12px;
   }
 
+  /* Wordmark and geomagnetic readout share the first row, satellites the second. */
   .kp {
     order: 2;
   }
@@ -465,6 +544,11 @@ a {
   .nav {
     order: 3;
     width: 100%;
+    gap: 22px;
+  }
+
+  .kp__value {
+    font-size: 12px;
   }
 
   .hero__meta {
@@ -472,7 +556,8 @@ a {
   }
 
   .telemetry {
-    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    gap: 10px 0;
     padding-top: 12px;
   }
 
@@ -486,16 +571,165 @@ a {
   }
 }
 
+/* Phones. */
 @media (width <= 560px) {
+  .topbar {
+    gap: 6px 14px;
+    padding-block: 10px;
+  }
+
+  .wordmark {
+    font-size: 13px;
+    letter-spacing: 0.18em;
+  }
+
+  .kp__label {
+    display: none;
+  }
+
+  .nav {
+    gap: 18px;
+  }
+
   .stage {
-    padding-bottom: 18px;
+    padding-bottom: 16px;
+  }
+
+  .hero__eyebrow {
+    margin-bottom: 6px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
   }
 
   .hero__headline {
-    font-size: clamp(28px, 9vw, 40px);
+    font-size: clamp(30px, 10vw, 42px);
   }
 
-  /* Below this width the strip is the only thing competing with the globe. */
+  .hero__headline--prompt {
+    font-size: clamp(20px, 6.4vw, 26px);
+  }
+
+  .hero__meta {
+    margin-top: 10px;
+    font-size: 12px;
+  }
+
+  .button {
+    margin-top: 16px;
+    padding: 12px 18px;
+  }
+
+  /* Four readouts per row stays legible down to ~360px. */
+  .telemetry {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px 8px;
+    padding: 12px clamp(16px, 4vw, 20px) 10px;
+  }
+
+  .stat {
+    padding-right: 6px;
+  }
+
+  .stat__label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  .stat__value {
+    font-size: 12px;
+  }
+
+  .stat__note {
+    display: none;
+  }
+
+  /*
+   * Screen space belongs to the globe. The satellite name is already the active
+   * item in the nav, and the epoch only confirms the feed is live — which the
+   * moving figures do anyway. Dropping both takes the strip from three rows to
+   * two and hands ~50px back to the map.
+   */
+  .stat--satellite,
+  .stat--epoch {
+    display: none;
+  }
+
+  .sources {
+    padding-bottom: 10px;
+  }
+
+  .sources__list {
+    display: none;
+  }
+
+  /* With our own source list hidden, Cesium's credit gets the whole row. Let it
+     wrap tidily rather than spilling; the logo and the attribution link — the
+     parts Ion actually requires — stay visible either way. */
+  .sources__credits {
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 1px;
+    font-size: 8px;
+    line-height: 1.3;
+  }
+}
+
+/* Narrow phones: three readouts per row rather than four cramped ones. */
+@media (width <= 400px) {
+  .telemetry {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/*
+ * Landscape phones are wide but extremely short, so the globe gets squeezed
+ * between the bands. Everything tightens and the secondary copy steps aside.
+ */
+@media (height <= 460px) and (orientation: landscape) {
+  .topbar {
+    height: 48px;
+    padding-block: 0;
+    flex-wrap: nowrap;
+  }
+
+  .nav {
+    order: 0;
+    width: auto;
+  }
+
+  .kp {
+    order: 0;
+  }
+
+  .stage {
+    padding-bottom: 10px;
+  }
+
+  .hero__headline {
+    font-size: clamp(24px, 5vw, 32px);
+  }
+
+  .hero__meta,
+  .hero__eyebrow {
+    margin: 4px 0 0;
+    font-size: 11px;
+  }
+
+  .button {
+    min-height: 38px;
+    margin-top: 10px;
+    padding: 9px 16px;
+  }
+
+  .telemetry {
+    padding-block: 8px 6px;
+    gap: 6px 0;
+  }
+
+  /* One row of readouts only — the truncated epoch is not worth a second. */
+  .stat__note,
+  .stat--epoch,
   .sources__list {
     display: none;
   }

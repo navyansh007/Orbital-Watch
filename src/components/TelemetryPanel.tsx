@@ -28,6 +28,7 @@ export function TelemetryPanel({ satellite, state, error, periodMinutes }: Props
         label="Satellite"
         value={satellite.label}
         note={satellite.orbitClass === 'LEO' ? 'Low Earth orbit' : 'Geostationary'}
+        className="stat--satellite"
       />
       <Stat label="Latitude" value={state && formatLat(state.latitudeDeg)} />
       <Stat label="Longitude" value={state && formatLon(state.longitudeDeg)} />
@@ -39,14 +40,28 @@ export function TelemetryPanel({ satellite, state, error, periodMinutes }: Props
         note={state ? `${(footprintCoverageFraction(state.altitudeKm) * 100).toFixed(1)}% of Earth` : undefined}
       />
       <Stat label="Period" value={periodMinutes ? `${periodMinutes.toFixed(1)} min` : null} />
-      <Stat label="Epoch" value={state && `${formatUtc(state.timestamp)} UTC`} />
+      <Stat
+        label="Epoch"
+        value={state && `${formatUtc(state.timestamp)} UTC`}
+        className="stat--epoch"
+      />
     </div>
   );
 }
 
-function Stat({ label, value, note }: { label: string; value: string | null; note?: string }) {
+function Stat({
+  label,
+  value,
+  note,
+  className,
+}: {
+  label: string;
+  value: string | null;
+  note?: string;
+  className?: string;
+}) {
   return (
-    <div className="stat">
+    <div className={className ? `stat ${className}` : 'stat'}>
       <span className="stat__label">{label}</span>
       <span className="stat__value">{value ?? '—'}</span>
       {note && <span className="stat__note">{note}</span>}

@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 
 import { CREDIT_CONTAINER_ID, Globe } from './components/Globe';
 import { NextPassFinder } from './components/NextPassFinder';
+import { RotateHint } from './components/RotateHint';
 import { SatellitePicker } from './components/SatellitePicker';
 import { SpaceWeatherBadge } from './components/SpaceWeatherBadge';
 import { TelemetryPanel } from './components/TelemetryPanel';
@@ -98,6 +99,8 @@ export default function App() {
         <SatellitePicker selected={selectedId} onSelect={setSelectedId} />
         <SpaceWeatherBadge weather={weather} error={weatherError} />
       </header>
+
+      <RotateHint />
 
       <main className="stage">
         <NextPassFinder
