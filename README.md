@@ -102,9 +102,20 @@ well under that, and none of them should be weakened:
   inside a TLE's useful life; SGP4 error grows on the order of a couple of
   kilometres per day.
 
-If CelesTrak is unreachable the route serves the last good elements rather than
-failing, and the UI keeps propagating from the orbit it already has. A blocked
-IP clears automatically once the excessive requests stop for two hours.
+CelesTrak is a single, fairly slow origin, so upstream failures are a question
+of when rather than if — a Worker subrequest that cannot reach it comes back as
+a Cloudflare 522. Two things absorb that:
+
+- **Transient statuses are retried** (408, 5xx and Cloudflare's own 520-524)
+  with backoff and a per-attempt timeout. A 403 is *not* retried: that is
+  CelesTrak rate limiting, and hammering it would only deepen the block.
+- **A separate long-lived copy of the last good response** is kept for a week,
+  purely so an outage has something accurate to serve. Elements hours or even
+  days old still propagate fine, so serving them beats serving an error. Those
+  responses carry `X-Orbital-Watch-Stale: true` and a short TTL, so the outage
+  is re-tested in five minutes rather than on every request.
+
+A blocked IP clears automatically once the excessive requests stop for two hours.
 
 The dev server applies the same cache in memory (see `vite-plugins/`), so a
 morning of hot reloading does not get your own IP blocked.
@@ -217,6 +228,9 @@ Or deploy straight from a terminal with `npx wrangler login && npm run deploy`.
   the Worker run.
 - **Do not add per-satellite TLE requests.** See the CelesTrak section above —
   the batching and the explicit edge cache are load-bearing, not tidiness.
+- **Do not put `cf: { cacheTtl }` back on the CelesTrak subrequest.** It caches
+  the response whatever its status, so one 522 gets pinned for hours — a blip
+  becomes an outage. Only successful responses are ever cached, deliberately.
 
 ## Non-goals
 
